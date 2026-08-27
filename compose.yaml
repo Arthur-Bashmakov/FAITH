@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-faith}
+      POSTGRES_USER: ${POSTGRES_USER:-faith}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-faith_local_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-faith} -d ${POSTGRES_DB:-faith}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://faith:faith_local_password@postgres:5432/faith}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MAX_AUDIO_SIZE_MB: ${MAX_AUDIO_SIZE_MB:-20}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-86400}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-30}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-2592000}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      OMP_NUM_THREADS: ${OMP_NUM_THREADS:-2}
+      MKL_NUM_THREADS: ${MKL_NUM_THREADS:-2}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

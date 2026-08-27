@@ -1,0 +1,53 @@
+# Secrets and machine-specific configuration
+.env
+.env.production
+*.jks
+*.keystore
+keystore.properties
+local.properties
+gradle-daemon-jvm.properties
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Android / Gradle / IDE
+.gradle/
+.idea/
+**/build/
+
+# Local Android build state
+android/.android-*/
+android/.release-build.pid
+android/.gradle-*/
+captures/
+*.iml
+
+# Runtime data and logs
+data/
+uploads/
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local working files
+work/
+android/.gradle-*/
+android/android/.gradle-verify/
+docs-work/
+presentation-work/
+release/
+*.inspect.ndjson
+
+# Local model evaluation data and generated reports
+evaluation-data/
+evaluation-report.json
+evaluation-scores.csv
