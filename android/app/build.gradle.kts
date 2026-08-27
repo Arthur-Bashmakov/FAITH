@@ -3,6 +3,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+fun String.asBuildConfigString() = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val productionApiBaseUrl = "https://faith-audio.ru/"
+val yandexClientId = "adbd44b31dd64d6584ac28bf0bc91d95"
+val debugApiBaseUrl = providers.gradleProperty("DEBUG_API_BASE_URL")
+    .orElse(productionApiBaseUrl)
+    .get()
+
 android {
     namespace = "ru.faith.app"
     compileSdk = 36
@@ -16,11 +24,15 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["YANDEX_CLIENT_ID"] = yandexClientId
+        buildConfigField("String", "API_BASE_URL", productionApiBaseUrl.asBuildConfigString())
     }
 
     buildTypes {
         debug {
             isMinifyEnabled = false
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+            buildConfigField("String", "API_BASE_URL", debugApiBaseUrl.asBuildConfigString())
         }
         create("serverDebug") {
             initWith(getByName("debug"))
@@ -41,7 +53,7 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = false
+        buildConfig = true
     }
 
     bundle {
@@ -68,6 +80,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
+    implementation("com.yandex.android:authsdk:3.1.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

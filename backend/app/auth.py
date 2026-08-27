@@ -27,6 +27,23 @@ def normalize_email(email: str) -> str:
     return value
 
 
+def normalize_phone(phone: str) -> str:
+    value = phone.strip().replace(" ", "").replace("(", "").replace(")", "").replace("-", "")
+    if value.startswith("8") and len(value) == 11:
+        value = "+7" + value[1:]
+    elif value.startswith("00"):
+        value = "+" + value[2:]
+    if not value.startswith("+") or not value[1:].isdigit() or not 10 <= len(value[1:]) <= 15:
+        raise ValueError("Invalid phone number")
+    return value
+
+
+def normalize_identifier(identifier: str) -> tuple[str | None, str | None]:
+    if "@" in identifier:
+        return normalize_email(identifier), None
+    return None, normalize_phone(identifier)
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS)

@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.IntentCompat
@@ -44,6 +45,8 @@ class MainActivity : ComponentActivity() {
 }
 
 internal val DarkBackground = Color(0xFF090716)
+internal val PanelBackground = Color(0xFF211934)
+internal val RoyalViolet = Color(0xFF5A2A92)
 internal val Purple = Color(0xFFA96CFF)
 internal val LightPurple = Color(0xFFE8D9FF)
 
@@ -56,37 +59,44 @@ fun FaithApp(
     val context = LocalContext.current
     var splashVisible by remember { mutableStateOf(true) }
     var selectedLanguage by remember { mutableStateOf(context.savedLanguage()) }
-    var launchSoundEnabled by remember { mutableStateOf(context.isLaunchSoundEnabled()) }
+    var launchHapticEnabled by remember { mutableStateOf(context.isLaunchHapticEnabled()) }
 
-    LaunchedEffect(launchSoundEnabled) {
-        if (launchSoundEnabled) {
+    LaunchedEffect(launchHapticEnabled) {
+        if (launchHapticEnabled) {
             delay(650)
-            context.applicationContext.playFaithLaunchSound()
+            context.applicationContext.playFaithLaunchHaptic()
         }
     }
 
-    if (splashVisible) {
-        FaithSplash(
-            soundEnabled = launchSoundEnabled,
-            onSoundEnabledChange = { enabled ->
-                launchSoundEnabled = enabled
-                context.saveLaunchSoundEnabled(enabled)
-            },
-            onFinished = { splashVisible = false },
-        )
-    } else if (selectedLanguage == null) {
-        LanguageSelectionScreen(
-            onLanguageSelected = { language ->
-                context.saveLanguage(language)
-                selectedLanguage = language
-            },
-        )
-    } else {
-        FaithMainScreen(
-            contentResolver = contentResolver,
-            language = requireNotNull(selectedLanguage),
-            sharedAudio = sharedAudio,
-            onSharedAudioConsumed = onSharedAudioConsumed,
-        )
+    Box {
+        if (selectedLanguage == null) {
+            LanguageSelectionScreen(
+                onLanguageSelected = { language ->
+                    context.saveLanguage(language)
+                    selectedLanguage = language
+                },
+            )
+        } else {
+            FaithMainScreen(
+                contentResolver = contentResolver,
+                language = requireNotNull(selectedLanguage),
+                onLanguageChange = { language ->
+                    context.saveLanguage(language)
+                    selectedLanguage = language
+                },
+                sharedAudio = sharedAudio,
+                onSharedAudioConsumed = onSharedAudioConsumed,
+            )
+        }
+        if (splashVisible) {
+            FaithSplash(
+                hapticEnabled = launchHapticEnabled,
+                onHapticEnabledChange = { enabled ->
+                    launchHapticEnabled = enabled
+                    context.saveLaunchHapticEnabled(enabled)
+                },
+                onFinished = { splashVisible = false },
+            )
+        }
     }
 }

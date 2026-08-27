@@ -18,8 +18,11 @@ FAITH — клиент-серверное Android-приложение для и
 - последовательные экраны выбора, предпросмотра, обработки и результата;
 - история анализов для авторизованного пользователя;
 - русский и английский интерфейс;
-- регистрация и вход по email; гостевой режим остаётся доступным;
+- переключение языка непосредственно в настройках с немедленным сохранением выбора;
+- регистрация и вход по email или номеру телефона; гостевой режим остаётся доступным;
 - отмена сетевого запроса и понятные сообщения об ошибках.
+- безопасное удаление аккаунта с повторным вводом пароля;
+- исходное аудио не сохраняется после завершения запроса.
 
 ### Архитектура и стек
 
@@ -77,6 +80,14 @@ docker compose stop
 
 Production-адрес уже задан приложением: `https://faith-audio.ru/`. Пользователю не требуется вводить IP, выбирать сервер или запускать локальный туннель.
 
+Адрес задаётся через `BuildConfig.API_BASE_URL`. Release-сборка всегда использует production URL. Только для debug-сборки можно временно указать другой адрес без изменения исходников:
+
+```powershell
+.\gradlew.bat :app:assembleDebug -PDEBUG_API_BASE_URL=http://10.0.2.2:8000/
+```
+
+HTTP разрешён только в debug; release требует HTTPS.
+
 Сборка из PowerShell:
 
 ```powershell
@@ -84,6 +95,19 @@ cd android
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:assembleDebug test
 ```
+
+Backend-тесты:
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+При обновлении существующей PostgreSQL-базы для поддержки телефонных аккаунтов перед запуском нового backend необходимо применить `backend/migrations/001_add_phone_auth.sql`. На production миграция выполняется только после резервной копии и отдельного согласования.
+
+Регистрация по телефону или email сейчас использует идентификатор и пароль. Подтверждение владения номером по SMS и адресом через письмо ещё не подключено; для него потребуются отдельные провайдеры и секреты только на backend. Интерфейс и документация не должны представлять эти идентификаторы как подтверждённые.
 
 ### Развёртывание на VPS
 
@@ -99,6 +123,10 @@ Production использует `compose.yaml` вместе с `compose.prod.yam
 - API доступен через HTTPS;
 - токен Android хранится через Android Keystore;
 - загрузка ограничена по MIME-типу и размеру;
+- содержимое загруженного аудио обрабатывается в памяти, а временные файлы декодирования удаляются сразу после анализа;
+- PostgreSQL хранит только имя, SHA-256 и результат, но не исходное аудио;
+- временный результат Redis по умолчанию хранится 15 минут (`CACHE_TTL_SECONDS=900`);
+- история доступна только владельцу аккаунта; удаление обычного аккаунта требует повторного ввода пароля, а аккаунта Яндекс ID — явного подтверждения из действующей защищённой сессии;
 - административный маршрут защищён отдельными учётными данными;
 - `scripts/check_repository.ps1` проверяет проект на локальные пути, приватные ключи и случайно записанные токены.
 
@@ -108,7 +136,9 @@ Production использует `compose.yaml` вместе с `compose.prod.yam
 powershell -ExecutionPolicy Bypass -File scripts/check_repository.ps1
 ```
 
-OAuth/OIDC для внешних провайдеров требует регистрации приложения у каждого провайдера и отдельных секретов. Эти секреты нельзя добавлять в репозиторий.
+Первым внешним провайдером реализован Яндекс ID через официальный Android LoginSDK. Android передаёт полученный OAuth-токен backend по HTTPS, а backend получает профиль только через `https://login.yandex.ru/info` и проверяет поле `client_id` перед созданием собственной сессии FAITH. Публичный Client ID используется в Android и задаётся backend через `YANDEX_CLIENT_ID`; Client secret приложению не передаётся и в репозитории не хранится. Google не был подключён из-за недоступности регистрации Google Cloud для выбранного региона, VK ID требует подтверждённого бизнес-профиля, а Apple не является приоритетом для Android-only версии. Эти способы входа скрыты, а не имитируются.
+
+CPU-инференс AASIST выполняется в отдельном рабочем потоке и ограничен одним одновременным заданием. Поэтому тяжёлый анализ не должен блокировать health check и авторизацию; фактическое время модели записывается в журнал backend.
 
 ---
 
@@ -128,8 +158,11 @@ FAITH is a client-server Android application for research-oriented assessment of
 - separate selection, preview, processing and result screens;
 - analysis history for authenticated users;
 - Russian and English UI;
-- email registration and sign-in with an optional guest mode;
+- email or phone-number registration and sign-in with an optional guest mode;
 - request cancellation and user-friendly error states.
+- password-confirmed account deletion;
+- Russian/English switching directly in Settings with immediate persistence;
+- source audio is not retained after the request completes.
 
 ### Architecture and technology
 
@@ -157,9 +190,25 @@ API documentation: <http://localhost:8000/docs>
 
 Open `android/` in Android Studio and run the `app` configuration on a Pixel 4 API 29 emulator or a physical Android device. The production endpoint is embedded in the application as `https://faith-audio.ru/`; end users do not select a server or enter an IP address.
 
+The endpoint is supplied through `BuildConfig.API_BASE_URL`. Release builds always use production. A debug-only override can be supplied without editing source code:
+
+```powershell
+.\gradlew.bat :app:assembleDebug -PDEBUG_API_BASE_URL=http://10.0.2.2:8000/
+```
+
+Cleartext HTTP is allowed only for debug builds; release builds require HTTPS.
+
+Existing PostgreSQL installations require `backend/migrations/001_add_phone_auth.sql` before the updated backend is started. Production migration must be preceded by a backup and explicit approval. Phone and email accounts currently use an identifier and password. SMS and email ownership verification require separate providers configured only on the backend; neither identifier should be described as verified yet.
+
 ### Security and release checks
 
 Runtime secrets belong only in an untracked `.env` file. Databases are not exposed publicly, production traffic uses HTTPS, Android tokens are protected by Android Keystore, and uploads are restricted by content type and size.
+
+Uploaded bytes are processed in memory and are not persisted. Decoder temporary files are deleted immediately, PostgreSQL stores metadata/results only, and Redis analysis responses expire after 15 minutes by default (`CACHE_TTL_SECONDS=900`). History requires authentication and is scoped to its owner. Password accounts require password re-verification for deletion; Yandex ID accounts require explicit confirmation from an active protected session.
+
+Yandex ID is the first implemented external identity provider and uses the official Android LoginSDK. Android sends the OAuth token to the backend over HTTPS; the backend retrieves the profile only from `https://login.yandex.ru/info` and verifies `client_id` before issuing a FAITH session. The public Client ID is used by Android and supplied to the backend through `YANDEX_CLIENT_ID`; no Client secret is shipped in the app or committed. Google registration was unavailable for the selected region, VK ID requires a verified business profile, and Apple is not a priority for the Android-only release. These providers remain hidden rather than simulated.
+
+AASIST CPU inference runs in a worker thread and is limited to one concurrent job. Heavy inference therefore does not block health or authentication requests, and the backend logs the measured inference duration.
 
 Before publishing, run:
 

@@ -23,8 +23,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-private const val DEFAULT_API_BASE_URL = "https://faith-audio.ru/"
-
 data class AnalysisResult(
     val verdict: String,
     val probability: Double,
@@ -41,7 +39,7 @@ data class AnalysisHistoryItem(
     val createdAt: String,
 )
 
-data class AuthSession(val token: String, val email: String)
+data class AuthSession(val token: String, val account: String, val provider: String = "password")
 
 class AudioReadException : IOException()
 class ApiServerException(val statusCode: Int) : IOException()
@@ -53,7 +51,7 @@ class ApiClient(
         .readTimeout(120, TimeUnit.SECONDS)
         .callTimeout(150, TimeUnit.SECONDS)
         .build(),
-    baseUrl: String = DEFAULT_API_BASE_URL,
+    baseUrl: String = BuildConfig.API_BASE_URL,
     private val tokenProvider: () -> String? = { null },
 ) {
     private val baseUrl = baseUrl.normalizeServerUrl()
@@ -65,6 +63,7 @@ class ApiClient(
         withContext(Dispatchers.IO) {
             val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: throw AudioReadException()
+            onUploadProgress(0f)
             val fileName = queryFileName(contentResolver, uri) ?: "audio.wav"
             val mediaType = contentResolver.getType(uri) ?: when (fileName.substringAfterLast('.', "").lowercase()) {
                 "mp3" -> "audio/mpeg"
@@ -92,6 +91,7 @@ class ApiClient(
 
             suspendCancellableCoroutine { continuation ->
                 val call = client.newCall(request)
+                call.timeout().timeout(60, TimeUnit.SECONDS)
                 continuation.invokeOnCancellation { call.cancel() }
                 call.enqueue(object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
@@ -151,25 +151,69 @@ class ApiClient(
         }
     }
 
-    suspend fun authenticate(email: String, password: String, register: Boolean): AuthSession =
+    suspend fun authenticate(identifier: String, password: String, register: Boolean): AuthSession =
         withContext(Dispatchers.IO) {
-            val payload = JSONObject().put("email", email).put("password", password)
+            val payload = JSONObject()
+                .put("identifier", identifier)
+                .put("password", password)
+                .apply {
+                    // Keep email authentication compatible with the deployed
+                    // API until phone authentication is rolled out there.
+                    if (identifier.contains('@')) put("email", identifier)
+                }
             val body = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
             val endpoint = if (register) "register" else "login"
             val request = Request.Builder()
                 .url("${baseUrl}api/v1/auth/$endpoint")
                 .post(body)
                 .build()
-            client.newCall(request).execute().use { response ->
+            val call = client.newCall(request)
+            call.timeout().timeout(25, TimeUnit.SECONDS)
+            call.execute().use { response ->
                 val text = response.body.string()
                 if (!response.isSuccessful) throw ApiServerException(response.code)
                 val json = JSONObject(text)
+                val user = json.getJSONObject("user")
                 AuthSession(
                     token = json.getString("access_token"),
-                    email = json.getJSONObject("user").getString("email"),
+                    account = if (!user.isNull("email")) user.getString("email") else user.getString("phone"),
                 )
             }
         }
+
+    suspend fun authenticateYandex(oauthToken: String): AuthSession = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("oauth_token", oauthToken).toString()
+            .toRequestBody("application/json; charset=utf-8".toMediaType())
+        val request = Request.Builder()
+            .url("${baseUrl}api/v1/auth/yandex")
+            .post(body)
+            .build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body.string()
+            if (!response.isSuccessful) throw ApiServerException(response.code)
+            val json = JSONObject(text)
+            val user = json.getJSONObject("user")
+            val account = when {
+                !user.isNull("email") -> user.getString("email")
+                !user.isNull("phone") -> user.getString("phone")
+                else -> "Yandex ID"
+            }
+            AuthSession(json.getString("access_token"), account, provider = "yandex")
+        }
+    }
+
+    suspend fun deleteAccount(password: String?) = withContext(Dispatchers.IO) {
+        val payload = JSONObject().apply { password?.let { put("password", it) } }
+        val body = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        val request = Request.Builder()
+            .url("${baseUrl}api/v1/auth/account")
+            .withBearerToken()
+            .delete(body)
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw ApiServerException(response.code)
+        }
+    }
 
     private fun Request.Builder.withBearerToken(): Request.Builder = apply {
         tokenProvider()?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }

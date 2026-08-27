@@ -14,12 +14,15 @@ internal class AuthStorage(private val context: Context) {
     private val preferences = context.getSharedPreferences("faith_auth", Context.MODE_PRIVATE)
 
     fun token(): String? = preferences.getString("token", null)?.let(::decrypt)
-    fun email(): String? = preferences.getString("email", null)
+    fun email(): String? = preferences.getString("account", null) ?: preferences.getString("email", null)
+    fun provider(): String = preferences.getString("provider", "password") ?: "password"
 
     fun save(session: AuthSession) {
         preferences.edit()
             .putString("token", encrypt(session.token))
-            .putString("email", session.email)
+            .putString("account", session.account)
+            .putString("provider", session.provider)
+            .remove("email")
             .apply()
     }
 

@@ -1,18 +1,27 @@
 package ru.faith.app
 
 import android.content.Context
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -35,7 +44,7 @@ internal fun HomeScreen(
     Spacer(Modifier.height(12.dp))
     Button(
         onClick = onRecordVoice,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A2A92)),
+        colors = ButtonDefaults.buttonColors(containerColor = RoyalViolet),
     ) { Text(context.getString(R.string.record_voice)) }
 }
 
@@ -97,41 +106,68 @@ internal fun PreviewScreen(
     onChooseAnother: () -> Unit,
     onClear: () -> Unit,
 ) {
-    Text(
-        audioInfo?.name.orEmpty(),
-        color = Color.White,
-        textAlign = TextAlign.Center,
-    )
-    Spacer(Modifier.height(12.dp))
-    audioInfo?.let { AudioInfoCard(info = it, context = context) }
-    Spacer(Modifier.height(12.dp))
-    if (hasSelectedFile) {
-        PlaybackButton(
-            isPlaying = isPlaying,
-            progress = playbackProgress,
-            context = context,
-            onClick = onTogglePlayback,
+    if (!hasSelectedFile) {
+        Text(
+            context.getString(R.string.audio_not_selected),
+            color = LightPurple,
+            textAlign = TextAlign.Center,
         )
-        if (playbackError) {
-            Text(
-                context.getString(R.string.playback_error),
-                color = Color(0xFFFF8A9A),
-                fontSize = 12.sp,
+        Spacer(Modifier.height(16.dp))
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onChooseAnother,
+            colors = ButtonDefaults.buttonColors(containerColor = Purple),
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            Text(context.getString(R.string.choose_audio))
+        }
+        return
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = audioInfo?.name.orEmpty(),
+            modifier = Modifier.weight(1f),
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        IconButton(onClick = onClear) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = context.getString(R.string.clear_selected_audio),
+                tint = LightPurple,
             )
         }
-        Spacer(Modifier.height(12.dp))
     }
+    Spacer(Modifier.height(12.dp))
+    audioInfo?.let {
+        AudioInfoCard(
+            info = it,
+            context = context,
+            isPlaying = isPlaying,
+            playbackProgress = playbackProgress,
+            onTogglePlayback = onTogglePlayback,
+        )
+    }
+    if (playbackError) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            context.getString(R.string.playback_error),
+            color = Color(0xFFFF8A9A),
+            fontSize = 12.sp,
+        )
+    }
+    Spacer(Modifier.height(12.dp))
     Button(
+        modifier = Modifier.fillMaxWidth(),
         onClick = onAnalyze,
-        enabled = hasSelectedFile,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A2A92)),
+        colors = ButtonDefaults.buttonColors(containerColor = RoyalViolet),
+        shape = RoundedCornerShape(14.dp),
     ) { Text(context.getString(R.string.analyze_audio)) }
-    TextButton(onClick = onChooseAnother) {
-        Text(context.getString(R.string.choose_another_audio), color = LightPurple)
-    }
-    TextButton(onClick = onClear) {
-        Text(context.getString(R.string.clear_selected_audio), color = LightPurple)
-    }
 }
 
 @Composable
@@ -152,7 +188,11 @@ internal fun ProcessingScreen(
         fontWeight = FontWeight.Bold,
     )
     Text(
-        if (uploadProgress < 1f) {
+        if (uploadProgress < 0f) {
+            context.getString(R.string.preparing_audio)
+        } else if (uploadProgress == 0f) {
+            context.getString(R.string.connecting_to_server)
+        } else if (uploadProgress < 1f) {
             context.getString(R.string.upload_progress, (uploadProgress * 100).toInt())
         } else {
             context.getString(R.string.model_processing)

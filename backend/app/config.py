@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://faith:faith_local_password@localhost:5432/faith"
     redis_url: str = "redis://localhost:6379/0"
     max_audio_size_mb: int = 20
-    cache_ttl_seconds: int = 86_400
+    cache_ttl_seconds: int = 900
     rate_limit_requests: int = 30
     rate_limit_window_seconds: int = 60
     admin_username: str | None = None
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     allowed_hosts: str = "*"
     access_token_ttl_seconds: int = 2_592_000
     auth_required: bool = False
+    yandex_client_id: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
+import asyncio
 import hashlib
 import json
+import logging
+from time import perf_counter
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
@@ -8,9 +11,10 @@ from redis import Redis
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.concurrency import run_in_threadpool
 
 from app.admin import router as admin_router
-from app.auth import request_user
+from app.auth import current_user, request_user
 from app.auth_routes import router as auth_router
 from app.audio import MODEL_VERSION, InvalidAudioError, analyze_audio
 from app.config import get_settings
@@ -22,6 +26,8 @@ from app.security import enforce_rate_limit
 
 settings = get_settings()
 redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
+analysis_semaphore = asyncio.Semaphore(1)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -116,7 +122,17 @@ async def create_analysis(
         return response.model_copy(update={"cached": True})
 
     try:
-        prediction = analyze_audio(content, audio.filename or "audio.wav")
+        analysis_started = perf_counter()
+        async with analysis_semaphore:
+            prediction = await run_in_threadpool(
+                analyze_audio,
+                content,
+                audio.filename or "audio.wav",
+            )
+        logger.info(
+            "Audio analysis completed in %.3f seconds",
+            perf_counter() - analysis_started,
+        )
     except InvalidAudioError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -155,11 +171,9 @@ async def create_analysis(
 @app.get("/api/v1/analyses", response_model=list[AnalysisResponse])
 def list_analyses(
     db: Session = Depends(get_db),
-    user: User | None = Depends(request_user),
+    user: User = Depends(current_user),
 ) -> list[Analysis]:
-    query = select(Analysis)
-    if user is not None:
-        query = query.join(AnalysisOwnership).where(AnalysisOwnership.user_id == user.id)
+    query = select(Analysis).join(AnalysisOwnership).where(AnalysisOwnership.user_id == user.id)
     return list(db.scalars(query.order_by(Analysis.created_at.desc()).limit(100)))
 
 
@@ -167,20 +181,19 @@ def list_analyses(
 def get_analysis(
     analysis_id: UUID,
     db: Session = Depends(get_db),
-    user: User | None = Depends(request_user),
+    user: User = Depends(current_user),
 ) -> Analysis:
     record = db.get(Analysis, analysis_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Результат анализа не найден")
-    if user is not None:
-        ownership = db.scalar(
-            select(AnalysisOwnership).where(
-                AnalysisOwnership.user_id == user.id,
-                AnalysisOwnership.analysis_id == analysis_id,
-            )
+    ownership = db.scalar(
+        select(AnalysisOwnership).where(
+            AnalysisOwnership.user_id == user.id,
+            AnalysisOwnership.analysis_id == analysis_id,
         )
-        if ownership is None:
-            raise HTTPException(status_code=404, detail="Analysis result not found")
+    )
+    if ownership is None:
+        raise HTTPException(status_code=404, detail="Analysis result not found")
     return record
 
 

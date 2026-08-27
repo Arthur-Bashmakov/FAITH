@@ -23,20 +23,29 @@ class AnalysisResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    email: str = Field(min_length=5, max_length=254)
+    identifier: str = Field(min_length=5, max_length=254)
     password: str = Field(min_length=10, max_length=128)
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(min_length=5, max_length=254)
+    identifier: str = Field(min_length=5, max_length=254)
     password: str = Field(min_length=1, max_length=128)
+
+
+class YandexLoginRequest(BaseModel):
+    oauth_token: str = Field(min_length=20, max_length=4096)
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    email: str
+    email: str | None
+    phone: str | None
     role: str
     is_active: bool
     created_at: datetime

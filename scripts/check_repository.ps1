@@ -13,7 +13,18 @@ $localArtifactPrefixes = @(
     'presentation-work/',
     'release/'
 )
-$trackedCandidates = git ls-files --cached --others --exclude-standard | Where-Object {
+$root = Split-Path -Parent $PSScriptRoot
+$insideGit = Test-Path -LiteralPath (Join-Path $root '.git') -PathType Container
+if ($insideGit) {
+    $candidates = git ls-files --cached --others --exclude-standard
+} else {
+    Write-Warning 'Git metadata is absent; scanning source-like files in the current tree instead of tracked files.'
+    $candidates = Get-ChildItem -LiteralPath $root -File -Recurse -Force | Where-Object {
+        $_.FullName -notmatch '[\\/](\.gradle|\.idea|build|__pycache__|\.pytest_cache|release)[\\/]' -and
+        $_.Name -notin @('local.properties', 'gradle-daemon-jvm.properties')
+    } | ForEach-Object { $_.FullName.Substring($root.Length + 1).Replace('\', '/') }
+}
+$trackedCandidates = $candidates | Where-Object {
     $candidate = $_
     -not ($localArtifactPrefixes | Where-Object { $candidate.StartsWith($_) })
 }

@@ -30,8 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,8 +92,8 @@ internal fun LanguageSelectionScreen(onLanguageSelected: (String) -> Unit) {
 
 @Composable
 internal fun FaithSplash(
-    soundEnabled: Boolean,
-    onSoundEnabledChange: (Boolean) -> Unit,
+    hapticEnabled: Boolean,
+    onHapticEnabledChange: (Boolean) -> Unit,
     onFinished: () -> Unit,
 ) {
     var stageIndex by remember { mutableStateOf(0) }
@@ -118,11 +117,10 @@ internal fun FaithSplash(
         label = "splashPulse",
     )
     LaunchedEffect(Unit) {
-        for (index in 1..4) {
-            delay(1_500)
+        for (index in 1..5) {
+            delay(1_600)
             stageIndex = index
         }
-        delay(2_000)
         onFinished()
     }
 
@@ -177,21 +175,17 @@ internal fun FaithSplash(
         }
         MorphingFaithWord(stageIndex = stageIndex, pulse = pulse)
         IconButton(
-            onClick = { onSoundEnabledChange(!soundEnabled) },
+            onClick = { onHapticEnabledChange(!hapticEnabled) },
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(18.dp),
         ) {
             Icon(
-                imageVector = if (soundEnabled) {
-                    Icons.AutoMirrored.Rounded.VolumeUp
-                } else {
-                    Icons.AutoMirrored.Rounded.VolumeOff
-                },
+                imageVector = Icons.Rounded.Vibration,
                 contentDescription = stringResource(
-                    if (soundEnabled) R.string.launch_sound_on else R.string.launch_sound_off,
+                    if (hapticEnabled) R.string.launch_haptic_on else R.string.launch_haptic_off,
                 ),
-                tint = LightPurple,
+                tint = if (hapticEnabled) LightPurple else LightPurple.copy(alpha = 0.35f),
             )
         }
     }

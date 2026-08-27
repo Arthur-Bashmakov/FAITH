@@ -41,11 +41,12 @@ internal fun PlaybackButton(
     progress: Float,
     context: Context,
     onClick: () -> Unit,
+    compact: Boolean = false,
 ) {
     Box(
         modifier = Modifier
-            .width(158.dp)
-            .height(46.dp)
+            .width(if (compact) 104.dp else 158.dp)
+            .height(if (compact) 40.dp else 46.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(Color(0xFF4B2B73))
             .clickable(onClick = onClick),
@@ -68,8 +69,9 @@ internal fun PlaybackButton(
             )
             Text(
                 context.getString(if (isPlaying) R.string.pause_audio else R.string.play_audio),
-                modifier = Modifier.padding(start = 6.dp),
+                modifier = Modifier.padding(start = if (compact) 2.dp else 6.dp),
                 color = Color.White,
+                fontSize = if (compact) 11.sp else 14.sp,
             )
         }
     }
@@ -160,15 +162,19 @@ internal fun readAudioInfo(
 }
 
 @Composable
-internal fun AudioInfoCard(info: SelectedAudioInfo, context: Context) {
+internal fun AudioInfoCard(
+    info: SelectedAudioInfo,
+    context: Context,
+    isPlaying: Boolean,
+    playbackProgress: Float,
+    onTogglePlayback: () -> Unit,
+) {
     val unknown = context.getString(R.string.audio_value_unknown)
     val duration = info.durationMillis?.let {
         val seconds = it / 1000
         "%d:%02d".format(seconds / 60, seconds % 60)
     } ?: unknown
-    MessageCard(
-        title = context.getString(R.string.audio_information),
-        description = buildList {
+    val description = buildList {
             info.trackTitle?.let { add(context.getString(R.string.audio_track_title, it)) }
             info.artist?.let { add(context.getString(R.string.audio_artist, it)) }
             add(context.getString(R.string.audio_format, info.format?.uppercase() ?: unknown))
@@ -179,10 +185,39 @@ internal fun AudioInfoCard(info: SelectedAudioInfo, context: Context) {
                 )
             )
             add(context.getString(R.string.audio_duration, duration))
-        }.joinToString("\n"),
-        accent = LightPurple,
-        compact = true,
-    )
+        }.joinToString("\n")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                context.getString(R.string.audio_information),
+                color = LightPurple,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+            )
+            Text(
+                description,
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 13.sp,
+            )
+        }
+        PlaybackButton(
+            isPlaying = isPlaying,
+            progress = playbackProgress,
+            context = context,
+            onClick = onTogglePlayback,
+            compact = true,
+        )
+    }
 }
 
 @Composable
@@ -262,4 +297,3 @@ internal fun MessageCard(
         }
     }
 }
-

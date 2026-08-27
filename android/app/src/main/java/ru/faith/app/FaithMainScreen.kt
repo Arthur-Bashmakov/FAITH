@@ -46,11 +46,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.yandex.authsdk.YandexAuthLoginOptions
+import com.yandex.authsdk.YandexAuthOptions
+import com.yandex.authsdk.YandexAuthResult
+import com.yandex.authsdk.YandexAuthSdk
 
 @Composable
 internal fun FaithMainScreen(
     contentResolver: android.content.ContentResolver,
     language: String,
+    onLanguageChange: (String) -> Unit,
     sharedAudio: Uri? = null,
     onSharedAudioConsumed: () -> Unit = {},
 ) {
@@ -62,7 +67,7 @@ internal fun FaithMainScreen(
         var result by remember { mutableStateOf<AnalysisResult?>(null) }
         var error by remember { mutableStateOf<String?>(null) }
         var validationIssue by remember { mutableStateOf(false) }
-        var uploadProgress by remember { mutableStateOf(0f) }
+        var uploadProgress by remember { mutableStateOf(-1f) }
         var page by remember { mutableStateOf(AudioPage.HOME) }
         var analysisRequestId by remember { mutableStateOf(0) }
         var recordingSeconds by remember { mutableStateOf(0) }
@@ -72,9 +77,12 @@ internal fun FaithMainScreen(
         var showSettings by remember { mutableStateOf(false) }
         val authStorage = remember { AuthStorage(context.applicationContext) }
         var accountEmail by remember { mutableStateOf(authStorage.email()) }
+        var accountProvider by remember { mutableStateOf(authStorage.provider()) }
         var showAuth by remember { mutableStateOf(false) }
         var authBusy by remember { mutableStateOf(false) }
         var authError by remember { mutableStateOf<String?>(null) }
+        var deleteBusy by remember { mutableStateOf(false) }
+        var deleteError by remember { mutableStateOf<String?>(null) }
         var historyItems by remember { mutableStateOf<List<AnalysisHistoryItem>>(emptyList()) }
         var historyLoading by remember { mutableStateOf(false) }
         var historyError by remember { mutableStateOf<String?>(null) }
@@ -84,6 +92,40 @@ internal fun FaithMainScreen(
         val screenScrollState = rememberScrollState()
         val api = remember(authStorage) {
             ApiClient(tokenProvider = { authStorage.token() })
+        }
+        val yandexSdk = remember { YandexAuthSdk.create(YandexAuthOptions(context.applicationContext)) }
+        val yandexLauncher = rememberLauncherForActivityResult(yandexSdk.contract) { yandexResult ->
+            when (yandexResult) {
+                is YandexAuthResult.Success -> scope.launch {
+                    authBusy = true
+                    authError = null
+                    try {
+                        val session = api.authenticateYandex(yandexResult.token.value)
+                        authStorage.save(session)
+                        accountEmail = session.account
+                        accountProvider = session.provider
+                        showAuth = false
+                    } catch (throwable: Throwable) {
+                        authError = when (throwable) {
+                            is ApiServerException -> localizedContext.getString(
+                                if (throwable.statusCode == 409) R.string.account_error_exists
+                                else R.string.account_yandex_error
+                            )
+                            is java.net.SocketTimeoutException -> localizedContext.getString(R.string.account_error_timeout)
+                            is java.io.IOException -> localizedContext.getString(R.string.error_network)
+                            else -> localizedContext.getString(R.string.account_yandex_error)
+                        }
+                    } finally {
+                        authBusy = false
+                    }
+                }
+                is YandexAuthResult.Failure -> {
+                    authError = localizedContext.getString(R.string.account_yandex_error)
+                }
+                YandexAuthResult.Cancelled -> {
+                    authError = localizedContext.getString(R.string.account_yandex_cancelled)
+                }
+            }
         }
         val recorder = remember { WavRecorder() }
         val audioPlayer = remember { AudioPlayer(context.applicationContext) }
@@ -137,7 +179,7 @@ internal fun FaithMainScreen(
             error = null
             result = null
             validationIssue = false
-            uploadProgress = 0f
+            uploadProgress = -1f
             audioPlayer.stop { isPlaying = it }
             page = AudioPage.PROCESSING
             try {
@@ -384,6 +426,9 @@ internal fun FaithMainScreen(
             FaithSettingsDialog(
                 context = localizedContext,
                 accountEmail = accountEmail,
+                accountProvider = accountProvider,
+                language = language,
+                onLanguageChange = onLanguageChange,
                 onOpenAccount = {
                     showSettings = false
                     authError = null
@@ -392,14 +437,32 @@ internal fun FaithMainScreen(
                 onLogout = {
                     authStorage.clear()
                     accountEmail = null
+                    accountProvider = "password"
+                },
+                deleteBusy = deleteBusy,
+                deleteError = deleteError,
+                onDeleteAccount = { password ->
+                    scope.launch {
+                        deleteBusy = true
+                        deleteError = null
+                        try {
+                            api.deleteAccount(password.takeIf { accountProvider == "password" })
+                            authStorage.clear()
+                            accountEmail = null
+                            accountProvider = "password"
+                            showSettings = false
+                            historyItems = emptyList()
+                        } catch (throwable: Throwable) {
+                            deleteError = throwable.localizedUserMessage(localizedContext)
+                        } finally {
+                            deleteBusy = false
+                        }
+                    }
                 },
                 onOpenHistory = {
                     showSettings = false
                     page = AudioPage.HISTORY
                     historyRequestId += 1
-                },
-                onSave = {
-                    showSettings = false
                 },
                 onDismiss = { showSettings = false },
             )
@@ -416,14 +479,30 @@ internal fun FaithMainScreen(
                         try {
                             val session = api.authenticate(email.trim(), password, register)
                             authStorage.save(session)
-                            accountEmail = session.email
+                            accountEmail = session.account
+                            accountProvider = session.provider
                             showAuth = false
                         } catch (throwable: Throwable) {
-                            authError = throwable.localizedUserMessage(localizedContext)
+                            authError = when (throwable) {
+                                is ApiServerException -> when (throwable.statusCode) {
+                                    401 -> localizedContext.getString(R.string.account_error_credentials)
+                                    409 -> localizedContext.getString(R.string.account_error_exists)
+                                    422 -> localizedContext.getString(R.string.account_error_identifier)
+                                    else -> localizedContext.getString(R.string.error_server, throwable.statusCode)
+                                }
+                                is java.net.SocketTimeoutException ->
+                                    localizedContext.getString(R.string.account_error_timeout)
+                                is java.io.IOException -> localizedContext.getString(R.string.error_network)
+                                else -> localizedContext.getString(R.string.error_unknown)
+                            }
                         } finally {
                             authBusy = false
                         }
                     }
+                },
+                onYandexSignIn = {
+                    authError = null
+                    yandexLauncher.launch(YandexAuthLoginOptions())
                 },
                 onDismiss = { showAuth = false },
             )

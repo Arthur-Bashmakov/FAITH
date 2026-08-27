@@ -74,7 +74,7 @@ internal fun AnalysisHistoryContent(
     Button(
         onClick = onRefresh,
         enabled = !loading,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A2A92)),
+        colors = ButtonDefaults.buttonColors(containerColor = RoyalViolet),
     ) {
         Text(context.getString(R.string.history_refresh))
     }
