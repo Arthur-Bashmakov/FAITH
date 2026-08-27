@@ -50,6 +50,7 @@ import com.yandex.authsdk.YandexAuthLoginOptions
 import com.yandex.authsdk.YandexAuthOptions
 import com.yandex.authsdk.YandexAuthResult
 import com.yandex.authsdk.YandexAuthSdk
+import com.yandex.authsdk.internal.strategy.LoginType
 
 @Composable
 internal fun FaithMainScreen(
@@ -502,7 +503,9 @@ internal fun FaithMainScreen(
                 },
                 onYandexSignIn = {
                     authError = null
-                    yandexLauncher.launch(YandexAuthLoginOptions())
+                    yandexLauncher.launch(
+                        YandexAuthLoginOptions(loginType = LoginType.CHROME_TAB)
+                    )
                 },
                 onDismiss = { showAuth = false },
             )

@@ -51,7 +51,9 @@
     <string name="result_uncertain_hint">For a more confident result, repeat the check with a 5–10 second recording.</string>
     <string name="result_audio_name">File name: %1$s</string>
     <string name="microphone_recording_name">Microphone recording</string>
-    <string name="synthetic_score">Model synthesis score: %1$d%%</string>
+    <string name="synthetic_score_low">Model assessment: low indicators of synthesis</string>
+    <string name="synthetic_score_intermediate">Model assessment: intermediate indicators of synthesis</string>
+    <string name="synthetic_score_high">Model assessment: high indicators of synthesis</string>
     <string name="cached_result"> • cached result</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>

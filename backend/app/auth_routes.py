@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import bearer, current_user, hash_password, issue_access_token, normalize_identifier, verify_password
 from app.database import get_db
-from app.models import AccessToken, AnalysisOwnership, AuditEvent, ExternalIdentity, User
+from app.models import AccessToken, Analysis, AnalysisOwnership, AuditEvent, ExternalIdentity, User
 from app.config import get_settings
 from app.schemas import DeleteAccountRequest, LoginRequest, RegisterRequest, TokenResponse, UserResponse, YandexLoginRequest
 from app.security import enforce_rate_limit
@@ -165,11 +165,37 @@ def delete_account(
     ):
         raise HTTPException(status_code=401, detail="Invalid password")
 
+    owned_analysis_ids = set(
+        db.scalars(
+            select(AnalysisOwnership.analysis_id).where(AnalysisOwnership.user_id == user.id)
+        )
+    )
+
     # Explicit deletes make the privacy behavior independent of ORM cascade
     # configuration; PostgreSQL foreign keys remain a second line of defence.
     for model in (AccessToken, ExternalIdentity, AnalysisOwnership):
         for record in db.scalars(select(model).where(model.user_id == user.id)):
             db.delete(record)
+    for event in db.scalars(select(AuditEvent).where(AuditEvent.resource_id == str(user.id))):
+        db.delete(event)
     db.delete(user)
+    db.flush()
+
+    # A result can be shared when identical audio was analyzed by more than one
+    # account. Remove it only after the last ownership link is gone.
+    for analysis_id in owned_analysis_ids:
+        still_owned = db.scalar(
+            select(AnalysisOwnership.id)
+            .where(AnalysisOwnership.analysis_id == analysis_id)
+            .limit(1)
+        )
+        if still_owned is None:
+            analysis = db.get(Analysis, analysis_id)
+            if analysis is not None:
+                db.delete(analysis)
+            for event in db.scalars(
+                select(AuditEvent).where(AuditEvent.resource_id == str(analysis_id))
+            ):
+                db.delete(event)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

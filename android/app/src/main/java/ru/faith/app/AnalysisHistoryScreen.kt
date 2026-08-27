@@ -25,7 +25,6 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.roundToInt
 
 @Composable
 internal fun AnalysisHistoryContent(
@@ -85,7 +84,6 @@ internal fun AnalysisHistoryContent(
 
 @Composable
 private fun HistoryCard(item: AnalysisHistoryItem, context: Context) {
-    val score = (item.probability * 100).roundToInt().coerceIn(0, 100)
     val title = when (item.verdict) {
         "synthetic" -> context.getString(R.string.result_synthetic)
         "human" -> context.getString(R.string.result_human)
@@ -113,7 +111,7 @@ private fun HistoryCard(item: AnalysisHistoryItem, context: Context) {
         Spacer(Modifier.height(5.dp))
         Text(title, color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         Text(
-            context.getString(R.string.synthetic_score, score),
+            modelScoreLabel(item.verdict, context),
             color = LightPurple,
             fontSize = 12.sp,
         )

@@ -222,13 +222,12 @@ internal fun AudioInfoCard(
 
 @Composable
 internal fun ResultCard(result: AnalysisResult, audioInfo: SelectedAudioInfo?, context: Context) {
-    val percent = (result.probability * 100).toInt()
     val title = when (result.verdict) {
         "synthetic" -> context.getString(R.string.result_synthetic)
         "uncertain" -> context.getString(R.string.result_uncertain)
         else -> context.getString(R.string.result_human)
     }
-    val score = context.getString(R.string.synthetic_score, percent) +
+    val score = modelScoreLabel(result.verdict, context) +
         if (result.cached) context.getString(R.string.cached_result) else ""
     val displayAudioName = audioInfo?.name?.let {
         if (it.startsWith("faith-recording-")) {
@@ -257,6 +256,14 @@ internal fun ResultCard(result: AnalysisResult, audioInfo: SelectedAudioInfo?, c
         compact = true,
     )
 }
+
+internal fun modelScoreLabel(verdict: String, context: Context): String = context.getString(
+    when (verdict) {
+        "synthetic" -> R.string.synthetic_score_high
+        "uncertain" -> R.string.synthetic_score_intermediate
+        else -> R.string.synthetic_score_low
+    }
+)
 
 internal fun Throwable.localizedUserMessage(context: Context): String = when (this) {
     is AudioReadException -> context.getString(R.string.error_file_read)

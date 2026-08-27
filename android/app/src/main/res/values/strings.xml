@@ -51,7 +51,9 @@
     <string name="result_uncertain_hint">Для более уверенного вывода повторите проверку с записью длительностью 5–10 секунд.</string>
     <string name="result_audio_name">Название файла: %1$s</string>
     <string name="microphone_recording_name">Запись с микрофона</string>
-    <string name="synthetic_score">Оценка синтеза моделью: %1$d%%</string>
+    <string name="synthetic_score_low">Оценка модели: низкие признаки синтеза</string>
+    <string name="synthetic_score_intermediate">Оценка модели: промежуточные признаки синтеза</string>
+    <string name="synthetic_score_high">Оценка модели: высокие признаки синтеза</string>
     <string name="cached_result"> • результат из кэша</string>
     <string name="save">Сохранить</string>
     <string name="cancel">Отмена</string>
