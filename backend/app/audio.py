@@ -10,7 +10,7 @@ import numpy as np
 from app.aasist_detector import synthetic_probability
 
 
-MODEL_VERSION = "aasist-l-asvspoof2019-multi-window-v4"
+MODEL_VERSION = "aasist-l-asvspoof2019-uniform-q25-v5"
 HUMAN_MAX_SCORE = 0.40
 SYNTHETIC_MIN_SCORE = 0.95
 SUPPORTED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".aac", ".ogg", ".flac"}

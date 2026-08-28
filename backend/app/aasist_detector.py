@@ -33,17 +33,21 @@ def _repeat_or_crop(samples: np.ndarray) -> np.ndarray:
 
 
 def _prepare_windows(samples: np.ndarray, sample_rate: int) -> np.ndarray:
-    """Build up to three speech-heavy windows from the complete recording."""
+    """Build five evenly spaced windows covering the complete recording."""
     resampled = _resample(samples, sample_rate)
     if resampled.size <= INPUT_SAMPLES:
         return _repeat_or_crop(resampled)[None, :]
 
     last_start = resampled.size - INPUT_SAMPLES
     candidate_starts = np.linspace(0, last_start, num=5, dtype=int)
-    candidates = [resampled[start : start + INPUT_SAMPLES] for start in candidate_starts]
-    energies = [float(np.mean(window * window)) for window in candidates]
-    selected = sorted(range(len(candidates)), key=energies.__getitem__, reverse=True)[:3]
-    return np.stack([candidates[index] for index in selected])
+    return np.stack(
+        [resampled[start : start + INPUT_SAMPLES] for start in candidate_starts]
+    )
+
+
+def _aggregate_spoof_scores(scores: np.ndarray) -> float:
+    """Prefer consistent spoof evidence over isolated codec artefacts."""
+    return float(np.quantile(scores, 0.25))
 
 
 def _resample(samples: np.ndarray, source_rate: int) -> np.ndarray:
@@ -81,7 +85,8 @@ def synthetic_probability(samples: np.ndarray, sample_rate: int) -> float:
     with torch.inference_mode():
         _, logits = model(batch)
         probabilities = torch.softmax(logits, dim=1)
-    # AASIST labels: 0 = spoof, 1 = bona fide.
-    # A median over several speech-heavy windows is less sensitive to a click,
-    # leading silence, or microphone startup noise in phone recordings.
-    return float(torch.median(probabilities[:, 0]).item())
+    # AASIST labels: 0 = spoof, 1 = bona fide. Phone microphones can produce
+    # isolated windows with very high false-spoof scores. The lower quartile
+    # still requires repeated spoof evidence while retaining full-recording
+    # coverage instead of selecting only the loudest fragments.
+    return _aggregate_spoof_scores(probabilities[:, 0].cpu().numpy())

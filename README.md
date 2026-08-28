@@ -42,7 +42,7 @@ Android → HTTPS/Caddy → FastAPI → AASIST-L
 
 ### Обработка аудио
 
-Входная запись преобразуется в mono PCM 16 кГц. Тишина и простые тональные сигналы отклоняются до запуска модели. Для тихой речи используется ограниченное адаптивное усиление. Длинные записи анализируются по нескольким фрагментам, а результат агрегируется устойчивым способом.
+Входная запись преобразуется в mono PCM 16 кГц. Тишина и простые тональные сигналы отклоняются до запуска модели. Для тихой речи используется ограниченное адаптивное усиление. Длинные записи покрываются пятью равномерными фрагментами, а итог вычисляется по нижнему квартилю оценок. Это уменьшает влияние отдельных ложных срабатываний на артефакты телефонного кодирования.
 
 Backend использует консервативные пороги для выбора класса. Приложение показывает числовую оценку синтетичности, полученную из выхода модели, и дополняет её качественным комментарием. Значение следует трактовать как оценку модели, а не как статистически калиброванную вероятность:
 
@@ -166,7 +166,7 @@ FAITH is a client-server Android application for research-oriented assessment of
 
 ### Audio processing
 
-Input is decoded to mono 16 kHz PCM. Effectively silent and simple tonal signals are rejected before inference, quiet speech receives bounded gain, and long recordings are evaluated using several speech-heavy windows. The backend keeps conservative internal thresholds. Android displays the model's numeric synthetic-speech score together with a qualitative explanation; the score is not presented as a statistically calibrated probability.
+Input is decoded to mono 16 kHz PCM. Effectively silent and simple tonal signals are rejected before inference, and quiet speech receives bounded gain. Long recordings are covered by five evenly spaced windows and aggregated with the lower quartile to reduce the influence of isolated false positives caused by phone-codec artefacts. The backend keeps conservative internal thresholds. Android displays the model's numeric synthetic-speech score together with a qualitative explanation; the score is not presented as a statistically calibrated probability.
 
 ### Architecture and technology
 
