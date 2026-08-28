@@ -117,10 +117,11 @@ internal fun FaithSplash(
         label = "splashPulse",
     )
     LaunchedEffect(Unit) {
-        for (index in 1..5) {
-            delay(1_600)
+        for (index in 1..4) {
+            delay(800)
             stageIndex = index
         }
+        delay(800)
         onFinished()
     }
 
@@ -229,10 +230,10 @@ private fun MorphingFaithWord(stageIndex: Int, pulse: Float) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         letters.forEachIndexed { index, letter ->
             val target = targets[index]
-            val x by animateDpAsState(target.x, tween(720, easing = FastOutSlowInEasing), label = "${letter}X")
-            val y by animateDpAsState(target.y, tween(720, easing = FastOutSlowInEasing), label = "${letter}Y")
-            val alpha by animateFloatAsState(target.alpha, tween(500), label = "${letter}Alpha")
-            val scale by animateFloatAsState(target.scale, tween(720, easing = FastOutSlowInEasing), label = "${letter}Scale")
+            val x by animateDpAsState(target.x, tween(560, easing = FastOutSlowInEasing), label = "${letter}X")
+            val y by animateDpAsState(target.y, tween(560, easing = FastOutSlowInEasing), label = "${letter}Y")
+            val alpha by animateFloatAsState(target.alpha, tween(420), label = "${letter}Alpha")
+            val scale by animateFloatAsState(target.scale, tween(560, easing = FastOutSlowInEasing), label = "${letter}Scale")
             val isAiLetter = letter == 'A' || letter == 'I'
 
             MetallicLetter(

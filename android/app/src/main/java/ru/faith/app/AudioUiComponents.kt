@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import java.io.File
 
 @Composable
@@ -227,7 +228,10 @@ internal fun ResultCard(result: AnalysisResult, audioInfo: SelectedAudioInfo?, c
         "uncertain" -> context.getString(R.string.result_uncertain)
         else -> context.getString(R.string.result_human)
     }
-    val score = modelScoreLabel(result.verdict, context) +
+    val score = context.getString(
+        R.string.synthetic_score,
+        (result.probability.coerceIn(0.0, 1.0) * 100).roundToInt(),
+    ) +
         if (result.cached) context.getString(R.string.cached_result) else ""
     val displayAudioName = audioInfo?.name?.let {
         if (it.startsWith("faith-recording-")) {
@@ -243,6 +247,7 @@ internal fun ResultCard(result: AnalysisResult, audioInfo: SelectedAudioInfo?, c
         audioInfo?.trackTitle?.let { context.getString(R.string.audio_track_title, it) },
         audioInfo?.artist?.let { context.getString(R.string.audio_artist, it) },
         score,
+        modelScoreLabel(result.verdict, context),
         if (result.verdict == "uncertain") {
             context.getString(R.string.result_uncertain_hint)
         } else {

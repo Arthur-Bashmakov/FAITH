@@ -2,6 +2,7 @@ package ru.faith.app
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.media.AudioAttributes
 import android.net.Uri
 
 class AudioPlayer(private val context: Context) {
@@ -26,6 +27,13 @@ class AudioPlayer(private val context: Context) {
         currentUri = uri
         prepared = false
         player = MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            setVolume(1f, 1f)
             setDataSource(context, uri)
             setOnPreparedListener {
                 prepared = true

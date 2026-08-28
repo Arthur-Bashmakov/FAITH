@@ -44,7 +44,7 @@ Android → HTTPS/Caddy → FastAPI → AASIST-L
 
 Входная запись преобразуется в mono PCM 16 кГц. Тишина и простые тональные сигналы отклоняются до запуска модели. Для тихой речи используется ограниченное адаптивное усиление. Длинные записи анализируются по нескольким фрагментам, а результат агрегируется устойчивым способом.
 
-Backend использует консервативные пороги для выбора класса, однако приложение не показывает точный процент как измеренную вероятность. Пользователь видит качественную оценку признаков синтеза:
+Backend использует консервативные пороги для выбора класса. Приложение показывает числовую оценку синтетичности, полученную из выхода модели, и дополняет её качественным комментарием. Значение следует трактовать как оценку модели, а не как статистически калиброванную вероятность:
 
 - низкие — вероятно человеческая речь;
 - промежуточные — результат неопределён;
@@ -166,7 +166,7 @@ FAITH is a client-server Android application for research-oriented assessment of
 
 ### Audio processing
 
-Input is decoded to mono 16 kHz PCM. Effectively silent and simple tonal signals are rejected before inference, quiet speech receives bounded gain, and long recordings are evaluated using several speech-heavy windows. The backend keeps conservative internal thresholds, while Android displays only low, intermediate or high synthesis indicators rather than an unjustifiably precise percentage.
+Input is decoded to mono 16 kHz PCM. Effectively silent and simple tonal signals are rejected before inference, quiet speech receives bounded gain, and long recordings are evaluated using several speech-heavy windows. The backend keeps conservative internal thresholds. Android displays the model's numeric synthetic-speech score together with a qualitative explanation; the score is not presented as a statistically calibrated probability.
 
 ### Architecture and technology
 
