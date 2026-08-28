@@ -125,9 +125,7 @@ internal fun FaithAuthDialog(
                 Spacer(Modifier.height(14.dp))
                 Button(
                     modifier = Modifier.fillMaxWidth().height(46.dp),
-                    enabled = !busy && email.isNotBlank() && (
-                        if (registerMode) password.length >= 10 else password.isNotBlank()
-                    ),
+                    enabled = !busy && isAuthSubmitEnabled(email, password, registerMode),
                     onClick = { onSubmit(email, password, registerMode) },
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(

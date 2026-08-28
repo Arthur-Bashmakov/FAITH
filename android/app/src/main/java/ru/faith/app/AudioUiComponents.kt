@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
 import java.io.File
 
 @Composable
@@ -230,7 +229,7 @@ internal fun ResultCard(result: AnalysisResult, audioInfo: SelectedAudioInfo?, c
     }
     val score = context.getString(
         R.string.synthetic_score,
-        (result.probability.coerceIn(0.0, 1.0) * 100).roundToInt(),
+        syntheticScorePercent(result.probability),
     ) +
         if (result.cached) context.getString(R.string.cached_result) else ""
     val displayAudioName = audioInfo?.name?.let {
@@ -263,10 +262,10 @@ internal fun ResultCard(result: AnalysisResult, audioInfo: SelectedAudioInfo?, c
 }
 
 internal fun modelScoreLabel(verdict: String, context: Context): String = context.getString(
-    when (verdict) {
-        "synthetic" -> R.string.synthetic_score_high
-        "uncertain" -> R.string.synthetic_score_intermediate
-        else -> R.string.synthetic_score_low
+    when (modelScoreBand(verdict)) {
+        ModelScoreBand.HIGH -> R.string.synthetic_score_high
+        ModelScoreBand.INTERMEDIATE -> R.string.synthetic_score_intermediate
+        ModelScoreBand.LOW -> R.string.synthetic_score_low
     }
 )
 

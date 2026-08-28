@@ -1,6 +1,9 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("kotlin-parcelize")
 }
 
 fun String.asBuildConfigString() = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
@@ -10,6 +13,12 @@ val yandexClientId = "adbd44b31dd64d6584ac28bf0bc91d95"
 val debugApiBaseUrl = providers.gradleProperty("DEBUG_API_BASE_URL")
     .orElse(productionApiBaseUrl)
     .get()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use(::load)
+    }
+}
 
 android {
     namespace = "ru.faith.app"
@@ -28,6 +37,17 @@ android {
         buildConfigField("String", "API_BASE_URL", productionApiBaseUrl.asBuildConfigString())
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -41,6 +61,7 @@ android {
             matchingFallbacks += listOf("debug")
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             manifestPlaceholders["usesCleartextTraffic"] = "false"
