@@ -47,6 +47,10 @@ presentation-work/
 release/
 *.inspect.ndjson
 
+# Private defense preparation materials
+docs/FAITH_полная_шпаргалка_к_защите.md
+docs/FAITH_защита_5_слайдов.pptx
+
 # Local model evaluation data and generated reports
 evaluation-data/
 evaluation-report.json
